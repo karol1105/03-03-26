@@ -77,3 +77,62 @@ class App:
         
         self.list_t = tk.Listbox(col3, borderwidth=0, font=label_font, height=10)
         self.list_t.pack(padx=10, pady=10, fill="both", expand=True)
+
+    def add_order(self):
+        val_id = self.id_in.get()
+        val_stop = self.stop_in.get()
+        if val_id and val_stop.isdigit():
+            obj = Item(val_id, self.cat_in.get(), val_stop)
+            self.incoming.add(obj)
+            self.refresh()
+            self.id_in.delete(0, 'end')
+            self.cat_in.delete(0, 'end')
+            self.stop_in.delete(0, 'end')
+        else:
+            messagebox.showwarning("Atención", "Completa los campos correctamente.")
+
+    def to_warehouse(self):
+        idx = self.slot_in.get()
+        if idx.isdigit():
+            p = self.incoming.get_next()
+            if p:
+                if not self.warehouse.put_in_slot(p, int(idx)):
+                    self.incoming.data.insert(0, p)
+                    messagebox.showerror("Error", "Estante ocupado o inválido")
+                self.refresh()
+                self.slot_in.delete(0, 'end')
+            else:
+                messagebox.showinfo("Info", "No hay paquetes en espera.")
+
+    def fill_truck(self):
+        items = self.warehouse.clear_and_get_all()
+        if not items:
+            messagebox.showinfo("Info", "El almacén está vacío.")
+            return
+        items.sort(key=lambda x: x.stop_index, reverse=True)
+        for i in items:
+            self.truck.push(i)
+        self.refresh()
+        messagebox.showinfo("Logística", "Camión cargado: El último en entrar será el primero en salir (Parada más cercana)")
+
+    def deliver(self):
+        p = self.truck.pop()
+        if p:
+            messagebox.showinfo("Entregado", f"Paquete {p.item_id} entregado en parada {p.stop_index}")
+        else:
+            messagebox.showinfo("Info", "El camión está vacío.")
+        self.refresh()
+
+    def refresh(self):
+        self.list_q.delete(0, 'end')
+        for x in self.incoming.data:
+            self.list_q.insert('end', f"ID: {x.item_id} | Parada: {x.stop_index}")
+
+        self.list_w.delete(0, 'end')
+        for i, x in enumerate(self.warehouse.slots):
+            txt = f"[{i}] Paquete: {x.item_id}" if x else f"[{i}] --- Vacío ---"
+            self.list_w.insert('end', txt)
+
+        self.list_t.delete(0, 'end')
+        for x in reversed(self.truck.stack):
+            self.list_t.insert('end', f" ID: {x.item_id} (Parada {x.stop_index})")
